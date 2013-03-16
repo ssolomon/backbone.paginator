@@ -16,8 +16,8 @@ You can either download the raw source code for the project, fork the repository
 * Development: [development version][max] 30.1K file size (6.8K gzipped)
 * Examples: [tarball](https://github.com/addyosmani/backbone.paginator/zipball/)
 
-[min]: https://raw.github.com/addyosmani/backbone.paginator/master/dist/backbone.paginator.min.js
-[max]: https://raw.github.com/addyosmani/backbone.paginator/master/dist/backbone.paginator.js
+[min]: https://raw.github.com/addyosmani/backbone.paginator/v0.5/dist/backbone.paginator.min.js
+[max]: https://raw.github.com/addyosmani/backbone.paginator/v0.5/dist/backbone.paginator.js
 
 We are also available via [Bower](http://twitter.github.com/bower/):
 
@@ -71,9 +71,15 @@ We need to set a base URL. The `type` of the request is `GET` by default, and th
       dataType: 'jsonp',
 
       // the URL (or base URL) for the service
+      // if you want to have a more dynamic URL, you can make this a function
+      // that returns a string
       url: 'http://odata.netflix.com/Catalog/People(49446)/TitlesActedIn?'
     },
 ```
+
+## Gotchas!
+
+If you use `dataType` **NOT** jsonp, please remove the callback custom parameter inside the `server_api` configuration.
 
 ####4. Configure how the library will show the results
 
@@ -129,6 +135,10 @@ Note how you can use functions instead of hardcoded values, and you can also ref
     },
 ```
 
+## Gotchas!
+
+If you use `$callback`, please ensure that you did use the jsonp as a `dataType` inside your `paginator_core` configuration.
+
 ####6. Finally, configure Collection.parse() and we're done
 
 The last thing we need to do is configure our collection's `parse()` method. We want to ensure we're returning the correct part of our JSON response containing the data our collection will be populated with, which below is `response.d.results` (for the Netflix API).
@@ -156,11 +166,11 @@ You might also notice that we're setting `this.totalPages` to the total page cou
 For your convenience, the following methods are made available for use in your views to interact with the `requestPager`:
 
 * **Collection.goTo( n, options )** - go to a specific page
-* **Collection.requestNextPage( options )** - go to the next page
-* **Collection.requestPreviousPage( options )** - go to the previous page
+* **Collection.nextPage( options )** - go to the next page
+* **Collection.prevPage( options )** - go to the previous page
 * **Collection.howManyPer( n )** - set the number of items to display per page
 
-**requestPager** collection's methods `.goTo()`, `.requestNextPage()` and `.requestPreviousPage()` are all extension of the original [Backbone Collection.fetch() method](http://documentcloud.github.com/backbone/#Collection-fetch). As so, they all can take the same option object as parameter.
+**requestPager** collection's methods `.goTo()`, `.nextPage()` and `.prevPage()` are all extension of the original [Backbone Collection.fetch() method](http://documentcloud.github.com/backbone/#Collection-fetch). As so, they all can take the same option object as parameter.
 
 This option object can use `success` and `error` parameters to pass a function to be executed after server answer.
 
@@ -192,10 +202,10 @@ Collection
 });
 ```
 
-If you'd like to add the incoming models to the current collection, instead of replacing the collection's contents, pass `{add: true}` as an option to these methods.
+If you'd like to add the incoming models to the current collection, instead of replacing the collection's contents, pass `{update: true, remove: false}` as options to these methods.
 
 ```javascript
-Collection.requestPreviousPage({ add: true });
+Collection.prevPage({ update: true, remove: false });
 ```
 
 ##Paginator.clientPager
@@ -303,12 +313,21 @@ And finally we have our `parse()` method, which in this case isn't concerned wit
 
 As mentioned, your views can hook into a number of convenience methods to navigate around UI-paginated data. For `clientPager` these include:
 
-* **Collection.goTo(n)** - go to a specific page
-* **Collection.previousPage()** - go to the previous page
-* **Collection.nextPage()** - go to the next page
+* **Collection.goTo(n, options)** - go to a specific page
+* **Collection.prevPage(options)** - go to the previous page
+* **Collection.nextPage(options)** - go to the next page
 * **Collection.howManyPer(n)** - set how many items to display per page
 * **Collection.setSort(sortBy, sortDirection)** - update sort on the current view. Sorting will automatically detect if you're trying to sort numbers (even if they're strored as strings) and will do the right thing.
 * **Collection.setFilter(filterFields, filterWords)** - filter the current view. Filtering supports multiple words without any specific order, so you'll basically get a full-text search ability. Also, you can pass it only one field from the model, or you can pass an array with fields and all of them will get filtered. Last option is to pass it an object containing a comparison method and rules. Currently, only ```levenshtein``` method is available.
+
+The `goTo()`, `prevPage()`, and `nextPage()` functions do not require the `options` param since they will be executed synchronously. However, when specified, the success callback will be invoked before the function returns. For example:
+
+```javascript
+nextPage(); // this works just fine!
+nextPage({success: function() { }}); // this will call the success function
+```
+
+The options param exists to preserve (some) interface unification between the requestPaginator and clientPaginator so that they may be used interchangeably in your Backbone.Views.
 
 ```javascript
   this.collection.setFilter(
@@ -447,6 +466,34 @@ Paginator.clientPager = Backbone.Collection.extend({
       this.useDiacriticsPlugin = true; // use diacritics plugin if available
     ...
 ```
+
+## Bootstrapping
+
+By default, both the clientPager and requestPager will make an initial request to the server in order to populate their internal paging data. In order to avoid this additional request, it may be beneficial to bootstrap your Backbone.Paginator instance from data that already exists in the dom.
+
+**Backbone.Paginator.clientPager:**
+```javascript
+// Extend the Backbone.Paginator.clientPager with your own configuration options
+var MyClientPager =  Backbone.Paginator.clientPager.extend({paginator_ui: {}});
+// Create an instance of your class and populate with the models of your entire collection
+var aClientPager = new MyClientPager([{id: 1, title: 'foo'}, {id: 2, title: 'bar'}]);
+// Invoke the bootstrap function
+aClientPager.bootstrap();
+```
+Note: If you intend to bootstrap a clientPager, there is no need to specify a 'paginator_core' object in your configuration (since you should have already populated the clientPager with the entirety of it's necessary data)
+
+**Backbone.Paginator.requestPager:**
+```javascript
+// Extend the Backbone.Paginator.requestPager with your own configuration options
+var MyRequestPager =  Backbone.Paginator.requestPager.extend({paginator_ui: {}});
+// Create an instance of your class with the first page of data
+var aRequestPager = new MyRequestPager([{id: 1, title: 'foo'}, {id: 2, title: 'bar'}]);
+// Invoke the bootstrap function and configure requestPager with 'totalRecords'
+aRequestPager.bootstrap({totalRecords: 50});
+```
+Note: Both the clientPager and requestPager ```bootstrap``` function will accept an options param that will be extended by your Backbone.Paginator instance. However the 'totalRecords' property will be set implicitly by the clientPager.
+
+More on Backbone bootstrapping: http://ricostacruz.com/backbone-patterns/#bootstrapping_data
 
 ## Release History
 
