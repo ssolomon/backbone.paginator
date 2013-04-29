@@ -1,4 +1,4 @@
-# Backbone.Paginator (0.5.1-dev)
+# Backbone.Paginator (0.8.0-dev)
 
 [![Continuous Integration status](https://secure.travis-ci.org/addyosmani/backbone.paginator.png)](http://travis-ci.org/addyosmani/backbone.paginator)
 
@@ -16,13 +16,19 @@ You can either download the raw source code for the project, fork the repository
 * Development: [development version][max] 30.1K file size (6.8K gzipped)
 * Examples: [tarball](https://github.com/addyosmani/backbone.paginator/zipball/)
 
-[min]: https://raw.github.com/addyosmani/backbone.paginator/v0.5/dist/backbone.paginator.min.js
-[max]: https://raw.github.com/addyosmani/backbone.paginator/v0.5/dist/backbone.paginator.js
+[min]: https://raw.github.com/addyosmani/backbone.paginator/v0.7/dist/backbone.paginator.min.js
+[max]: https://raw.github.com/addyosmani/backbone.paginator/v0.7/dist/backbone.paginator.js
 
-We are also available via [Bower](http://twitter.github.com/bower/):
+## Available on
+We are available via [Bower](http://twitter.github.com/bower/):
 
-```shell
+```bash
 bower install backbone.paginator
+```
+
+and on CDNJS
+```html
+<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.paginator/0.7/backbone.paginator.min.js"></script>
 ```
 
 ## Paginator's pieces

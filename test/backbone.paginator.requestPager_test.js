@@ -1,12 +1,35 @@
 /*globals Backbone:false, _:false, jQuery:false, $: false,
-      describe: true, expect: true, sinon: true
+      describe: true, expect: true, sinon: true,
       it: true, beforeEach: true, afterEach: true*/
+
+// helper for easy ajax faking
+var fakeAjax = function(func){
+  var xhr = sinon.useFakeXMLHttpRequest();
+  var requests = [];
+  xhr.onCreate = function(xhr){
+    requests.push(xhr);
+  };
+  try{
+    func(requests);
+  }
+  catch (e){
+    throw e;
+  }
+  finally{
+    xhr.restore();
+  }
+};
+
 describe('backbone.paginator.requestPager',function(){
 
   describe('sync method', function(){
 
     var spy;
     beforeEach(function(){
+      //some tests seem not clean up after them properly (happens only in phantomjs)
+      if (spy){
+        spy.restore();
+      }
       spy = sinon.spy($, 'ajax');
     });
     afterEach(function(){
@@ -157,7 +180,7 @@ describe('backbone.paginator.requestPager',function(){
     });
 
     it('should use the correct "options.success" arguments', function(done){
-      // This is to keep compatibility with Backbone older than 0.9.10
+      // This is to keep compatibility with Backbone 0.9.10
       var requestPagerTest = {
         paginator_ui: {},
         paginator_core: {
@@ -172,9 +195,9 @@ describe('backbone.paginator.requestPager',function(){
       server.respondWith([200, { "Content-Type": "application/json" }, '{ "key": "value" }']);
 
       var bbVer = Backbone.VERSION.split('.');
-      var oldSuccessFormat = (parseInt(bbVer[0], 10) === 0 &&
-                              parseInt(bbVer[1], 10) === 9 &&
-                              parseInt(bbVer[2], 10) <= 9);
+      var promiseSuccessFormat = !(parseInt(bbVer[0], 10) === 0 &&
+                                   parseInt(bbVer[1], 10) === 9 &&
+                                   parseInt(bbVer[2], 10) === 10);
 
       var model = {};
 
@@ -182,7 +205,7 @@ describe('backbone.paginator.requestPager',function(){
         success: function(model_, resp_, options) {
           // verify
           var bbVer = Backbone.VERSION.split('.');
-          if (oldSuccessFormat) {
+          if (promiseSuccessFormat) {
             var status_ = resp_;
             resp_ = model_;
             var xhr_ = options;
@@ -224,31 +247,32 @@ describe('backbone.paginator.requestPager',function(){
     });
 
     it("should emit 'sync' event when has been successfully synced with the server", function(done){
-      var requestPagerTest = {
+      var requestPager = {
         paginator_ui: {},
         paginator_core: {
           type: 'GET',
           dataType: 'json'
         }
       };
-      _.extend(requestPagerTest, new Backbone.Paginator.requestPager());
 
-      var server = sinon.fakeServer.create();
-      server.autoRespond = true;
-      server.respondWith([200, {}, ""]);
+      _.extend(requestPager, new Backbone.Paginator.requestPager());
 
-      // execute
-      var model = {
-        trigger: sinon.spy()
-      };
-      var options = {};
-      requestPagerTest.sync('read', model, options).always(function(){
-        // verify
-        expect(model.trigger.withArgs('sync').calledOnce).to.equal(true);
+      var howManySyncs = 0;
+      requestPager.on("sync", function(){
+        howManySyncs++;
+      });
+
+      fakeAjax(function(requests){
+        expect(requests.length).to.equal(0);
+        requestPager.fetch({ success: function(){} });
+        expect(requests.length).to.equal(1);
+        var req = requests[0];
+        expect(req.method).to.equal("GET");
+        req.respond(200, {}, JSON.stringify([{id:1234}]));
+        expect(howManySyncs).to.equal(1);
         done();
       });
 
-      server.restore();
     });
 
     it("should emit 'error' event when a call fails on the server", function(done){
